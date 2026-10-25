@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from dymo_bluetooth.printer import Result
-from scripts.print_batch_connected import print_batch
+from scripts.print_batch_connected import EXPECTED_ADDRESS, print_batch
 
 
 class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
@@ -47,7 +47,7 @@ class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(print_mock.await_count, 2)
 
         # The queue should have connected once at the start.
-        connect_mock.assert_awaited_once_with(None, 5)
+        connect_mock.assert_awaited_once_with(None, EXPECTED_ADDRESS, 5)
 
         # Even when printing fails, the connection must be closed.
         printer.disconnect.assert_awaited_once()
@@ -145,7 +145,7 @@ class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
             await print_batch(labels, timeout=5)
 
         self.assertEqual(print_mock.await_count, 2)
-        connect_mock.assert_awaited_once_with(None, 5)
+        connect_mock.assert_awaited_once_with(None, EXPECTED_ADDRESS, 5)
         self.assertIn("outcome is uncertain", output.getvalue())
         self.assertNotIn("Label 3 of 3", output.getvalue())
         printer.disconnect.assert_awaited_once()

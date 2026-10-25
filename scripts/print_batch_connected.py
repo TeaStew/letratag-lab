@@ -27,8 +27,7 @@ def get_printer_address(printer):
     implementation = getattr(printer, "_impl", None)
     return getattr(implementation, "address", None)
 
-
-async def find_expected_printer(timeout):
+async def find_expected_printer(address, timeout):
     """Discover the printer by its known Bluetooth address."""
     printers = await discover_printers(timeout, False)
 
@@ -37,13 +36,12 @@ async def find_expected_printer(timeout):
             candidate
             for candidate in printers
             if str(get_printer_address(candidate)).upper()
-            == EXPECTED_ADDRESS.upper()
+            == address.upper()
         ),
         None,
     )
 
-
-async def connect_with_retries(current_printer, timeout):
+async def connect_with_retries(current_printer, address, timeout):
     """Create a fresh connection, prompting if the printer is unavailable."""
     if current_printer is not None:
         try:
@@ -53,10 +51,10 @@ async def connect_with_retries(current_printer, timeout):
             pass
 
     while True:
-        print(f"Searching for the printer ({EXPECTED_ADDRESS})...")
+        print(f"Searching for the printer ({address})...")
 
         try:
-            printer = await find_expected_printer(timeout)
+            printer = await find_expected_printer(address, timeout)
 
             if printer is None:
                 print("Printer not found.")
@@ -85,9 +83,9 @@ async def connect_with_retries(current_printer, timeout):
             print("Stopped. No new print job was sent.")
             return None
 
-async def print_batch(labels, timeout):
+async def print_batch(labels, timeout, address=EXPECTED_ADDRESS):
     """Print a queue while recovering connections lost between labels."""
-    printer = await connect_with_retries(None, timeout)
+    printer = await connect_with_retries(None, address, timeout)
 
     if printer is None:
         return
@@ -115,7 +113,7 @@ async def print_batch(labels, timeout):
             # Recover a connection lost while the queue was waiting for input.
             if not printer._client.is_connected:
                 print("\nThe previous Bluetooth connection has been lost.")
-                printer = await connect_with_retries(printer, timeout)
+                printer = await connect_with_retries(printer, address, timeout)
 
                 if printer is None:
                     break
@@ -155,7 +153,7 @@ async def print_batch(labels, timeout):
 
                 print("Confirmed not printed. Reconnecting before retry.")
 
-                printer = await connect_with_retries(printer, timeout)
+                printer = await connect_with_retries(printer, address, timeout)
 
                 if printer is None:
                     print("Could not reconnect. The label remains unprinted.")
@@ -205,6 +203,12 @@ def main():
         default=DEFAULT_TIMEOUT,
         help="Printer discovery timeout in seconds",
     )
+    parser.add_argument(
+        "--address",
+        default=EXPECTED_ADDRESS,
+        help="Bluetooth address of the DYMO LetraTag printer",
+    )
+
     args = parser.parse_args()
 
     if args.timeout <= 0:
@@ -220,7 +224,7 @@ def main():
 
     print("\nDYMO LetraTag reconnecting print queue")
     print("-" * 38)
-    print(f"Printer:     {EXPECTED_ADDRESS}")
+    print(f"Printer:     {args.address}")
     print(f"Directory:   {args.input_dir}")
     print(f"Label count: {len(labels)}")
     print(f"First label: {labels[0].stem}")
@@ -237,7 +241,7 @@ def main():
         print("Batch cancelled. Nothing was sent to the printer.")
         return
 
-    asyncio.run(print_batch(labels, args.timeout))
+    asyncio.run(print_batch(labels, args.timeout, address=args.address))
 
 
 if __name__ == "__main__":
