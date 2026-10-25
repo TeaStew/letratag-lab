@@ -3,7 +3,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 
 from dymo_bluetooth.printer import Result
-from scripts.print_batch_connected import handle_print_result
+from letratag_lab.print_results import handle_print_result
 
 
 class TestHandlePrintResult(unittest.TestCase):
