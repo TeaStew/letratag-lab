@@ -62,6 +62,41 @@ class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
 
         # T3 should never appear in the queue output.
         self.assertNotIn("Label 3 of 3", output.getvalue())
+
+    async def test_custom_address_is_used_for_connection(self):
+        custom_address = "AA:BB:CC:DD:EE:FF"
+        printer = SimpleNamespace(
+            _client=SimpleNamespace(is_connected=True),
+            disconnect=AsyncMock(),
+        )
+        labels = [Path("T1.png")]
+
+        with (
+            patch(
+                "scripts.print_batch_connected.connect_with_retries",
+                new_callable=AsyncMock,
+                return_value=printer,
+            ) as connect_mock,
+            patch(
+                "scripts.print_batch_connected.print_one",
+                new_callable=AsyncMock,
+                return_value=Result.SUCCESS,
+            ),
+            patch("builtins.input", return_value=""),
+            redirect_stdout(StringIO()),
+        ):
+            await print_batch(
+                labels,
+                timeout=5,
+                address=custom_address,
+            )
+
+        connect_mock.assert_awaited_once_with(
+            None,
+            custom_address,
+            5,
+        )
+        printer.disconnect.assert_awaited_once()
  
     async def test_confirmed_unprinted_label_is_retried(self):
         printer = SimpleNamespace(
