@@ -157,6 +157,23 @@ async def print_one(printer, label_path):
             except Exception as exc:
                 print(f"Warning: notification cleanup failed: {exc}")
 
+def describe_print_error(exc):
+    """Return a user-friendly summary and technical detail."""
+    error_type = type(exc).__name__
+    technical_detail = f"{error_type}: {exc}"
+
+    if isinstance(exc, OSError) and "WinError -2147023673" in str(exc):
+        summary = (
+            "Windows cancelled the Bluetooth print operation. "
+            "The printer may have switched itself off or lost its connection."
+        )
+    else:
+        summary = (
+            "The print operation failed. "
+            "The cause could be a Bluetooth, printer, or other error."
+        )
+
+    return summary, technical_detail
 
 async def print_batch(labels, timeout):
     """Print a queue while recovering connections lost between labels."""
@@ -197,10 +214,13 @@ async def print_batch(labels, timeout):
 
             try:
                 result = await print_one(printer, label_path)
+                print(f"Print result: {result}")
 
             except Exception as exc:
-                print(f"Printing failed: {type(exc).__name__}: {exc}")
-                print("The printer may have powered off.")
+                summary, technical_detail = describe_print_error(exc)
+
+                print(f"\n{summary}")
+                print(f"Technical detail: {technical_detail}")
 
                 try:
                     outcome = input(
@@ -234,11 +254,13 @@ async def print_batch(labels, timeout):
 
                 try:
                     result = await print_one(printer, label_path)
+                    print(f"Print result: {result}")
+                
                 except Exception as retry_exc:
-                    print(
-                        f"Retry failed: {type(retry_exc).__name__}: "
-                        f"{retry_exc}"
-                    )
+                    summary, technical_detail = describe_print_error(retry_exc)
+
+                    print(f"\nRetry failed. {summary}")
+                    print(f"Technical detail: {technical_detail}")
                     print(
                         "Queue stopped. Check the physical label "
                         "before attempting another print."

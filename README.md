@@ -26,14 +26,15 @@ Initial development and protocol experiments are performed on Windows using Pyth
 - Print individual images using the upstream `dymo-bluetooth` package.
 - Print a batch while reusing a BLE connection between labels.
 - Clean up BLE notification handlers between print jobs.
+- Report the printer library's result after a successful print operation (for example, Result.SUCCESS).
 - Recover from the printer's automatic power-off between labels by reconnecting.
 
 ### Current limitations
 
 - The batch printer is a command-line prototype, not yet a general-purpose printing service or GUI.
 - The printer automatically powers off after a period of inactivity (timed to be five minutes). A later label may require switching the printer back on and reconnecting.
+- A successful printer response is not independent verification that a label physically emerged correctly.
 - When a Bluetooth error occurs during transmission, software may not know whether the label physically printed. The script asks the operator to check the label; it does not automatically retry an uncertain job.
-- The raw Windows/Bluetooth error messages can be technical and may sound alarming even when the script can recover.
 - Automated cutting has not yet been verified.
 
 ## Project layout
@@ -96,13 +97,21 @@ python scripts\print_batch_connected.py --input-dir output\connected-test
 
 The script displays the queue and requires the operator to type `PRINT` before connecting. Press Enter to print each label, or type `q` to stop the queue.
 
-If the printer has automatically powered off, the existing BLE connection may no longer be usable. If a print operation fails, inspect the physical label before answering the script's prompt:
+### How connection recovery works
+
+The script handles two main situations:
+1. **The connection is already reported as disconnected before a label is sent.** The script searches for the printer and reconnects before attempting that label. If the printer is off and cannot be found, it asks you to switch it on and press Enter to search again, or type q to stop.
+2. **The connection appears active, but the print operation fails.** The script reports a friendly explanation alongside the technical exception. Because it cannot reliably tell whether the printer physically produced the label, it asks you to check the label before choosing what to do.
+
+For the print-outcome prompt:
 
 - `y` — the label printed; continue without retrying it.
 - `n` — the label definitely did not print; reconnect and retry it once.
 - `u` — the outcome is uncertain; stop rather than risk a duplicate.
 
-**Important:** only answer `n` when you have confirmed that the label did not print. A printer response such as `SUCCESS` is useful feedback from the device, but physical output should still be checked during testing.
+A retry failure stops the queue and asks you to check the physical label before attempting another print.
+
+**Important:** only answer `n` when you have confirmed that the label did not print. A printer response such as `Result.SUCCESS` is useful feedback from the device, but physical output should still be checked.
 
 ## Safety and reliability principles
 
