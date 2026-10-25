@@ -175,6 +175,33 @@ def describe_print_error(exc):
 
     return summary, technical_detail
 
+def handle_print_result(result):
+    """Report the printer result and return True only for success."""
+    if result == Result.SUCCESS:
+        print(f"Print result: {result}")
+        return True
+
+    if result == Result.SUCCESS_LOW_BATTERY:
+        print(f"Print result: {result}")
+        print("Warning: the printer reports low battery.")
+        return True
+
+    messages = {
+        Result.FAILED: "The printer reported a general print failure.",
+        Result.FAILED_CANCEL: "The printer reported that printing was cancelled.",
+        Result.FAILED_LOW_BATTERY: (
+            "The printer reported low battery and the print failed."
+        ),
+        Result.FAILED_NO_CASETTE: (
+            "The printer reports that no label cassette is present."
+        ),
+    }
+
+    print(f"Print result: {result}")
+    print(messages.get(result, "The printer returned an unrecognised result."))
+    print("Queue stopped. Check the physical label before continuing.")
+    return False
+
 async def print_batch(labels, timeout):
     """Print a queue while recovering connections lost between labels."""
     printer = await connect_with_retries(None, timeout)
@@ -214,7 +241,8 @@ async def print_batch(labels, timeout):
 
             try:
                 result = await print_one(printer, label_path)
-                print(f"Print result: {result}")
+                if not handle_print_result(result):
+                    break
 
             except Exception as exc:
                 summary, technical_detail = describe_print_error(exc)
@@ -254,7 +282,8 @@ async def print_batch(labels, timeout):
 
                 try:
                     result = await print_one(printer, label_path)
-                    print(f"Print result: {result}")
+                    if not handle_print_result(result):
+                        break
                 
                 except Exception as retry_exc:
                     summary, technical_detail = describe_print_error(retry_exc)
