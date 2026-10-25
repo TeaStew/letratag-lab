@@ -1,4 +1,3 @@
-
 """Print a batch of labels, reconnecting after Bluetooth standby. 
 The image conversion and print-command format come from dymo-bluetooth."""
 
@@ -6,12 +5,12 @@ import argparse
 import asyncio
 import re
 from pathlib import Path
+
+from letratag_lab.config import DEFAULT_PRINTER_ADDRESS, DEFAULT_TIMEOUT
 from letratag_lab.printer import print_one
 from letratag_lab.print_results import describe_print_error, handle_print_result
-from dymo_bluetooth.bluetooth import discover_printers
 
-EXPECTED_ADDRESS = "DC:54:75:41:55:B6"
-DEFAULT_TIMEOUT = 10
+from dymo_bluetooth.bluetooth import discover_printers
 
 def natural_sort_key(path):
     """Sort numbered filenames in human order."""
@@ -83,7 +82,7 @@ async def connect_with_retries(current_printer, address, timeout):
             print("Stopped. No new print job was sent.")
             return None
 
-async def print_batch(labels, timeout, address=EXPECTED_ADDRESS):
+async def print_batch(labels, timeout, address=DEFAULT_PRINTER_ADDRESS):
     """Print a queue while recovering connections lost between labels."""
     printer = await connect_with_retries(None, address, timeout)
 
@@ -205,7 +204,7 @@ def main():
     )
     parser.add_argument(
         "--address",
-        default=EXPECTED_ADDRESS,
+        default=DEFAULT_PRINTER_ADDRESS,
         help="Bluetooth address of the DYMO LetraTag printer",
     )
 
