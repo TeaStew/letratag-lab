@@ -10,7 +10,6 @@ from dymo_bluetooth.printer import Result
 from letratag_lab.config import DEFAULT_PRINTER_ADDRESS
 from scripts.print_batch_connected import print_batch
 
-
 class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
     async def test_printer_failure_stops_queue_and_disconnects(self):
         # Simulate a connected printer with an asynchronous disconnect method.
@@ -99,6 +98,8 @@ class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
         printer.disconnect.assert_awaited_once()
  
     async def test_confirmed_unprinted_label_is_retried(self):
+        custom_address = "AA:BB:CC:DD:EE:FF"
+
         printer = SimpleNamespace(
             _client=SimpleNamespace(is_connected=True),
             disconnect=AsyncMock(),
@@ -132,13 +133,29 @@ class TestPrintBatch(unittest.IsolatedAsyncioTestCase):
             ),
             redirect_stdout(StringIO()) as output,
         ):
-            await print_batch(labels, timeout=5)
+            await print_batch(labels, timeout=5, address=custom_address,)
 
         # T1 succeeds, T2 fails and is retried, then T3 succeeds.
         self.assertEqual(print_mock.await_count, 4)
 
         # Initial connection plus reconnection before retrying T2.
         self.assertEqual(connect_mock.await_count, 2)
+
+        # The initial connection starts without an existing printer.
+        self.assertEqual(
+            connect_mock.await_args_list[0].args,
+            (None, custom_address, 5),
+        )
+
+        # Reconnection receives the existing printer and keeps the custom address.
+        self.assertIs(
+            connect_mock.await_args_list[1].args[0],
+            printer,
+        )
+        self.assertEqual(
+            connect_mock.await_args_list[1].args[1:],
+            (custom_address, 5),
+        )
 
         # The retry and T3 should both have succeeded.
         self.assertIn("Retrying the unprinted label once", output.getvalue())
